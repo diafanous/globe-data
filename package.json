@@ -1,0 +1,1 @@
+{"name":"globe-data","private":true,"type":"module","engines":{"node":">=22"},"scripts":{"build":"node build/build.mjs","sign":"node build/sign.mjs","test":"node --test tests/*.test.mjs"}}
