@@ -1,0 +1,53 @@
+{
+ "version": "2026-11-14",
+ "built": "2026-11-14T22:20:29.758Z",
+ "files": [
+  {
+   "name": "plants.json.br",
+   "records": 6805,
+   "bytes": 152409
+  },
+  {
+   "name": "plants-osm.json.br",
+   "records": 58969,
+   "bytes": 666281
+  },
+  {
+   "name": "emissions.json.br",
+   "records": 5416,
+   "bytes": 225222
+  }
+ ],
+ "sources": [
+  {
+   "id": "climatetrace",
+   "version": "v5.12.0",
+   "records": 6076,
+   "stale": false
+  },
+  {
+   "id": "epa-ghgrp",
+   "version": "reporting year 2023",
+   "records": 582,
+   "stale": false
+  },
+  {
+   "id": "uk-prtr",
+   "version": "reporting year 2024",
+   "records": 147,
+   "stale": false
+  },
+  {
+   "id": "osm",
+   "version": "2026-11-14",
+   "records": 58969,
+   "stale": false
+  },
+  {
+   "id": "okobaudat",
+   "version": "6381 datasets",
+   "records": 5416,
+   "stale": false
+  }
+ ]
+}
