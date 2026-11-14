@@ -18,7 +18,14 @@ export async function fetchPlants({ log }) {
   }
   const out = [], seen = new Set();
   for (const [code, sector] of Object.entries(NAICS)) {
-    const rows = await get(`${EF}/PUB_DIM_FACILITY/NAICS_CODE/${code}/YEAR/${year}/ROWS/0:4999/JSON`);
+    const rows = [], PAGE = 1000;
+    for (let start = 0; ; start += PAGE) {
+      const page = await get(`${EF}/PUB_DIM_FACILITY/NAICS_CODE/${code}/YEAR/${year}/ROWS/${start}:${start + PAGE - 1}/JSON`);
+      if (!Array.isArray(page)) throw Error(`EPA ${code}: unexpected answer.`);
+      rows.push(...page);
+      if (page.length < PAGE) break;
+      if (start > 100000) throw Error(`EPA ${code}: too many pages.`);
+    }
     for (const r of rows) {
       if (seen.has(r.facility_id) || !validLatLon(r.latitude, r.longitude)) continue;
       seen.add(r.facility_id);

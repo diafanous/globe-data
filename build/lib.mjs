@@ -63,6 +63,17 @@ export function unpack(table) {
   return out;
 }
 
+// A table is well formed: every column the right length and kind.
+export function checkTable(table, records) {
+  if (!table || !Number.isInteger(table.n) || table.n !== records || !table.cols) throw Error('Table does not match its record count.');
+  for (const [k, c] of Object.entries(table.cols)) {
+    const list = c.s || c.i || c.v;
+    if (!Array.isArray(list) || list.length !== table.n) throw Error(`Column ${k} is the wrong length.`);
+    if (c.d && !Array.isArray(c.d)) throw Error(`Column ${k} has no dictionary.`);
+  }
+  return true;
+}
+
 export const brotli = buf => brotliCompressSync(buf, { params: { [constants.BROTLI_PARAM_QUALITY]: 11, [constants.BROTLI_PARAM_SIZE_HINT]: buf.length } });
 export const unbrotli = buf => brotliDecompressSync(buf);
 export const sha256 = buf => createHash('sha256').update(buf).digest('hex');

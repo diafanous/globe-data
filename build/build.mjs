@@ -3,7 +3,8 @@
 // never empties the database. Usage: node build/build.mjs [--only id,id] [--previous dir]
 import { mkdir, writeFile, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { pack, unpack, brotli, unbrotli, sha256, get, today } from './lib.mjs';
+import { pack, unpack, brotli, unbrotli, sha256, get, today, checkTable } from './lib.mjs';
+import { createPublicKey, verify } from 'node:crypto';
 import { SECTORS } from './sectors.mjs';
 import * as climatetrace from './sources/climatetrace.mjs';
 import * as epa from './sources/epa.mjs';
@@ -26,25 +27,39 @@ const FILES = [
 const args = process.argv.slice(2);
 const only = args.includes('--only') ? args[args.indexOf('--only') + 1].split(',') : null;
 const prevDir = args.includes('--previous') ? args[args.indexOf('--previous') + 1] : null;
+const outDir = args.includes('--out') ? args[args.indexOf('--out') + 1] : 'dist';
 const log = (...m) => console.log(new Date().toISOString().slice(11, 19), ...m);
 
-// The previous release, from a local folder or from GitHub.
+// The previous release, from a local folder or from GitHub. Used for fallback records only after its
+// manifest signature (keys/public.pem) and every file checksum are verified; otherwise it is ignored.
 async function previousFile(name) {
   try { return prevDir ? await readFile(join(prevDir, name)) : await get(`${RELEASES}/${name}`, { as: 'buffer', tries: 2 }); }
   catch { return null; }
 }
-async function previousTable(name) {
-  const buf = await previousFile(name);
-  return buf ? JSON.parse(unbrotli(buf).toString('utf8')) : null;
+async function verifiedPrevious() {
+  const [manifestBytes, sig] = [await previousFile('manifest.json'), await previousFile('manifest.sig')];
+  if (!manifestBytes || !sig) { log('previous release: none'); return null; }
+  const pub = createPublicKey(await readFile(process.env.GLOBE_DATA_TEST_PUBLIC_KEY || new URL('../keys/public.pem', import.meta.url), 'utf8'));
+  if (!verify(null, manifestBytes, pub, Buffer.from(sig.toString('utf8').trim(), 'base64'))) { log('previous release: SIGNATURE FAILED, not used'); return null; }
+  const manifest = JSON.parse(manifestBytes), tables = {};
+  for (const f of manifest.files) {
+    const buf = await previousFile(f.name);
+    if (!buf || buf.length !== f.bytes || sha256(buf) !== f.sha256) { log(`previous release: ${f.name} CHECKSUM FAILED, not used`); return null; }
+    const body = JSON.parse(unbrotli(buf).toString('utf8'));
+    checkTable(body.table, f.records);
+    tables[f.name] = body;
+  }
+  log(`previous release: ${manifest.version} verified`);
+  return { manifest, tables };
 }
 
 export async function build(out = 'dist') {
   await mkdir(out, { recursive: true });
-  const prevManifest = await previousFile('manifest.json').then(b => b && JSON.parse(b.toString('utf8'))).catch(() => null);
+  const previousRelease = await verifiedPrevious(), prevManifest = previousRelease?.manifest ?? null;
   const manifest = { format: 'GLOBE-DATA', schema: SCHEMA, version: today(), built: new Date().toISOString(), minApp: '0.1.0', sectors: SECTORS, files: [], sources: [] };
   let failures = 0;
   for (const f of FILES) {
-    const prev = await previousTable(f.file);
+    const prev = previousRelease?.tables[f.file] ?? null;
     const prevRows = prev ? unpack(prev.table) : [];
     const rows = [], sources = [];
     for (const src of f.sources) {
@@ -55,7 +70,7 @@ export async function build(out = 'dist') {
         const r = f.kind === 'emissions' ? await src.fetchEmissions({ log, previous }) : await src.fetchPlants({ log });
         if (!r.rows.length) throw Error('no records');
         rows.push(...r.rows);
-        sources.push({ ...m, version: r.version, retrieved: today(), records: r.rows.length, stale: false });
+        sources.push({ ...m, version: r.version, retrieved: today(), records: r.rows.length, stale: false, ...(r.staleRecords ? { staleRecords: r.staleRecords } : {}) });
       } catch (e) {
         failures++; log(`${m.id} FAILED: ${e.message}`);
         if (before) { rows.push(...prevRows.filter(r => f.kind === 'emissions' || r.source === m.id)); sources.push({ ...before, stale: true }); }
@@ -75,6 +90,6 @@ export async function build(out = 'dist') {
 }
 
 if (process.argv[1]?.endsWith('build.mjs')) {
-  build().then(r => { log(`built ${r.manifest.version}: ${r.manifest.files.map(f => `${f.name} ${f.records}`).join(', ')}; ${r.failures} source failures`); })
+  build(outDir).then(r => { log(`built ${r.manifest.version}: ${r.manifest.files.map(f => `${f.name} ${f.records}`).join(', ')}; ${r.failures} source failures`); })
     .catch(e => { console.error(e); process.exit(1); });
 }

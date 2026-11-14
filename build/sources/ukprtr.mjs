@@ -15,10 +15,18 @@ export async function fetchPlants({ log }) {
   if (!links.length) throw Error('UK PRTR: no CSV link found on the page.');
   const { url, year } = links.sort((a, b) => b.year - a.year)[0];
   const rows = csvObjects(await get(url, { as: 'text' }));
+  const out = plantsFromRows(rows, year);
+  log(`uk-prtr ${year}: ${out.length} of ${rows.length} rows`);
+  return { rows: out, version: `reporting year ${year}` };
+}
+
+export function plantsFromRows(rows, year) {
   const out = [], seen = new Set();
   for (const r of rows) {
     const id = r.FacilityReport_NationalID, sector = NACE[clean(r.FacilityReport_NACEMainEconomicActivityCode)];
-    const lat = Number(r.FacilityReport_GeographicalCoordinate_LatitudeMeasure), lon = Number(r.FacilityReport_GeographicalCoordinate_LongitudeMeasure);
+    const latText = clean(r.FacilityReport_GeographicalCoordinate_LatitudeMeasure), lonText = clean(r.FacilityReport_GeographicalCoordinate_LongitudeMeasure);
+    if (!latText || !lonText) continue;
+    const lat = Number(latText), lon = Number(lonText);
     if (!sector || !id || seen.has(id) || !validLatLon(lat, lon)) continue;
     seen.add(id);
     out.push({
@@ -26,6 +34,5 @@ export async function fetchPlants({ log }) {
       type: clean(r.FacilityReport_MainEconomicActivityName), capacity: null, capacityUnit: '', source: meta.id, ref: id, precision: 'exact', year,
     });
   }
-  log(`uk-prtr ${year}: ${out.length} of ${rows.length} rows`);
-  return { rows: out, version: `reporting year ${year}` };
+  return out;
 }

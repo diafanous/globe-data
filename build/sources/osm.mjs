@@ -24,11 +24,19 @@ const Q = {
   quarry: ['nwr["landuse"="quarry"]["resource"~"^(aggregate|stone|limestone|granite|sand|gravel|clay|gypsum|slate|marble|sandstone|basalt)$"]'],
 };
 
+// Overpass answers runtime errors with HTTP 200 and a remark; such an answer is incomplete.
+export function checkOverpass(json, sector) {
+  if (json?.remark && /error|timed out|runtime|out of memory/i.test(json.remark)) throw Error(`Overpass ${sector}: ${json.remark.slice(0, 120)}`);
+  if (!Array.isArray(json?.elements)) throw Error(`Overpass ${sector}: no elements.`);
+  return true;
+}
+
 export async function fetchPlants({ log }) {
   const out = [], seen = new Set();
   for (const [sector, parts] of Object.entries(Q)) {
     const query = `[out:json][timeout:600];(${parts.join(';')};);out center tags qt;`;
     const json = await get(OVERPASS, { timeout: 660000, tries: 3, init: { method: 'POST', body: new URLSearchParams({ data: query }) } });
+    checkOverpass(json, sector);
     let n = 0;
     for (const e of json.elements || []) {
       const key = `${e.type[0]}${e.id}`, lat = e.lat ?? e.center?.lat, lon = e.lon ?? e.center?.lon;

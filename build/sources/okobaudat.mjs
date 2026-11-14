@@ -38,32 +38,43 @@ export function parseProcess(json) {
 
 // previous: Map uuid -> row from the last release, reused when the dataset version is unchanged.
 export async function fetchEmissions({ log, previous = new Map() }) {
-  const list = [];
-  for (let start = 0; ; start += 500) {
+  // Page by what the server actually returns, until its total is reached or a page comes back empty.
+  const list = []; let total = null;
+  for (let start = 0; ; ) {
     const page = await get(`${BASE}/processes?format=json&pageSize=500&startIndex=${start}&lang=en`, { timeout: 180000 });
-    const data = page?.data || [];
+    const data = Array.isArray(page?.data) ? page.data : null;
+    if (!data) throw Error('ÖKOBAUDAT: unexpected list answer.');
+    if (Number.isInteger(page.totalCount)) total = page.totalCount;
     list.push(...data.filter(d => d.uuid && d.name));
-    if (data.length < 500) break;
+    start += data.length;
+    if (!data.length || (total != null && start >= total)) break;
+    if (start > 200000) throw Error('ÖKOBAUDAT: too many pages.');
   }
-  log(`okobaudat: ${list.length} datasets listed`);
-  const rows = []; let fetched = 0, reused = 0, skipped = 0, i = 0;
+  if (total != null && list.length < total * 0.98) throw Error(`ÖKOBAUDAT: listed ${list.length} of ${total} datasets.`);
+  log(`okobaudat: ${list.length} datasets listed${total != null ? ` of ${total}` : ''}`);
+  const rows = []; let fetched = 0, reused = 0, skipped = 0, failed = 0, kept = 0, i = 0;
   async function worker() {
     while (i < list.length) {
       const d = list[i++], before = previous.get(d.uuid);
       if (before && before.version === (d.version || '')) { rows.push(before); reused++; continue; }
       try {
         const p = parseProcess(await get(`${BASE}/processes/${d.uuid}?format=json&view=extended`, { timeout: 60000 }));
-        if (!p) { skipped++; continue; }
+        if (!p) { skipped++; continue; } // the record has no A1-A3 figure: correctly left out
         fetched++;
         rows.push({ uuid: d.uuid, version: d.version || p.version, name: clean(d.name), owner: clean(d.owner), type: clean(d.subType || d.type),
           rank: rankOf(d.subType || d.type), category: clean(d.classific), geo: clean(d.geo), year: Number(d.refYear) || null,
           validUntil: Number(d.validUntil) || null, gwp: p.gwp, amount: p.amount, unit: p.unit, modules: p.modules, standard: p.standard });
-      } catch { skipped++; }
+      } catch {
+        // Unreachable record: keep last week's verified row if there is one, marked as kept; never drop it silently.
+        failed++;
+        if (before) { rows.push({ ...before }); kept++; }
+      }
       await sleep(150);
     }
   }
   await Promise.all(Array.from({ length: 4 }, worker));
-  log(`okobaudat: ${fetched} read, ${reused} unchanged, ${skipped} without an A1-A3 figure or unreadable`);
+  log(`okobaudat: ${fetched} read, ${reused} unchanged, ${skipped} without an A1-A3 figure, ${failed} unreachable (${kept} kept from the last release)`);
+  if (failed > Math.max(20, list.length * 0.02)) throw Error(`ÖKOBAUDAT: ${failed} records could not be read.`);
   rows.sort((a, b) => a.uuid.localeCompare(b.uuid));
-  return { rows, version: `${list.length} datasets` };
+  return { rows, version: `${list.length} datasets`, staleRecords: kept };
 }
