@@ -131,3 +131,8 @@ test('tables: the array of the column kind is the one checked (an extra column w
   assert.throws(() => checkTable({ n: 1, cols: { extra: { i: [0] } } }, 1), /no known kind/);
   assert.ok(checkTable({ n: 1, cols: { a: { v: [null] } } }, 1));
 });
+
+test('tables: column containers are checked like the app does', () => {
+  for (const cols of [[], 7, null]) assert.throws(() => checkTable({ n: 0, cols }, 0), /no columns/, JSON.stringify(cols));
+  assert.ok(checkTable({ n: 0, cols: {} }, 0));
+});

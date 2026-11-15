@@ -18,6 +18,7 @@ for (const f of m.files) {
   if (buf.length !== f.bytes || sha256(buf) !== f.sha256) throw Error(`${f.name}: hash or size does not match.`);
   const body = JSON.parse(unbrotli(buf).toString('utf8'));
   if (body.format !== 'GLOBE-DATA' || body.schema !== SCHEMA || body.kind !== f.kind) throw Error(`${f.name}: wrong format, schema or kind.`);
+  if (!Array.isArray(body.sources) || !body.sources.every(s => s && typeof s === 'object' && typeof s.id === 'string' && s.id)) throw Error(`${f.name}: no valid list of sources.`);
   checkTable(body.table, f.records);
   // The same content rules the app applies before using a release.
   const need = f.kind === 'plants' ? ['name', 'sector', 'lat', 'lon', 'source', 'ref'] : ['uuid', 'name', 'gwp', 'amount', 'unit'];

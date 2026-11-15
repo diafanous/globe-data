@@ -65,7 +65,8 @@ export function unpack(table) {
 
 // A table is well formed: every column the right length and kind.
 export function checkTable(table, records) {
-  if (!table || !Number.isInteger(table.n) || table.n !== records || !table.cols) throw Error('Table does not match its record count.');
+  if (!table || typeof table !== 'object' || !Number.isInteger(table.n) || table.n !== records) throw Error('Table does not match its record count.');
+  if (!table.cols || typeof table.cols !== 'object' || Array.isArray(table.cols)) throw Error('Table has no columns.');
   if (table.n < 0 || table.n > 5e6) throw Error('Table is too large.');
   // Same rule and order as the app's checkTable (GLOBE src/core/plantdb.mjs): the first kind present decides,
   // and the array belonging to that kind is the one checked.
