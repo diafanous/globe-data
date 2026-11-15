@@ -70,7 +70,9 @@ export function checkTable(table, records) {
   for (const [k, c] of Object.entries(table.cols)) {
     const list = c.s || c.i || c.v;
     if (!Array.isArray(list) || list.length !== table.n) throw Error(`Column ${k} is the wrong length.`);
-    if (c.d && !Array.isArray(c.d)) throw Error(`Column ${k} has no dictionary.`);
+    if (c.d && (!Array.isArray(c.d) || !c.d.every(v => typeof v === 'string'))) throw Error(`Column ${k} has no dictionary of text.`);
+    if (c.q != null && !(typeof c.q === 'number' && c.q > 0 && Number.isFinite(c.q))) throw Error(`Column ${k} has no valid scale.`);
+    if (!c.s && !c.d && c.q == null && !c.v) throw Error(`Column ${k} is of no known kind.`);
     if (c.s && !c.s.every(v => typeof v === 'string')) throw Error(`Column ${k} has a value that is not text.`);
     if (c.d && !c.i.every(v => Number.isInteger(v) && v >= -1 && v < c.d.length)) throw Error(`Column ${k} has an index out of range.`);
     if (c.q != null && !c.i.every(v => v === null || Number.isFinite(v))) throw Error(`Column ${k} has a value that is not a number.`);

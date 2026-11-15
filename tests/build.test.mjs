@@ -118,3 +118,10 @@ test('ÖKOBAUDAT: repeated pages fail; unreadable records keep last week\'s figu
     assert.deepEqual(r.partial, { failedRecords: 2, keptRecords: 1 });
   } finally { globalThis.fetch = real; }
 });
+
+test('tables: the build refuses what the app refuses (dictionary of numbers, bad scale, unknown kind)', () => {
+  assert.throws(() => checkTable({ n: 1, cols: { source: { d: [7], i: [0] } } }, 1), /dictionary of text/);
+  assert.throws(() => checkTable({ n: 1, cols: { lat: { q: -1e5, i: [1] } } }, 1), /scale/);
+  assert.throws(() => checkTable({ n: 1, cols: { x: { w: [1] } } }, 1), /no known kind|wrong length/);
+  assert.throws(() => checkTable({ n: 1, cols: { lat: { q: 1e5, i: ['1'] } } }, 1), /not a number/);
+});

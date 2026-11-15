@@ -23,9 +23,10 @@ for (const f of m.files) {
   const need = f.kind === 'plants' ? ['name', 'sector', 'lat', 'lon', 'source', 'ref'] : ['uuid', 'name', 'gwp', 'amount', 'unit'];
   for (const c of need) if (!body.table.cols[c]) throw Error(`${f.name}: column ${c} is missing.`);
   for (const r of unpack(body.table)) {
-    if (f.kind === 'plants' && !(r.source && r.sector && typeof r.name === 'string' && typeof r.ref === 'string' && Number.isFinite(r.lat) && Number.isFinite(r.lon)
+    const text = v => typeof v === 'string' && v.trim() !== '';
+    if (f.kind === 'plants' && !(text(r.source) && text(r.sector) && typeof r.name === 'string' && typeof r.ref === 'string' && Number.isFinite(r.lat) && Number.isFinite(r.lon)
       && r.lat >= -90 && r.lat <= 90 && r.lon >= -180 && r.lon <= 180)) throw Error(`${f.name}: a plant has no valid location.`);
-    if (f.kind === 'emissions' && !(r.uuid && typeof r.name === 'string' && Number.isFinite(r.gwp) && Number.isFinite(r.amount) && r.amount > 0 && r.unit)) throw Error(`${f.name}: a record has no valid figure.`);
+    if (f.kind === 'emissions' && !(text(r.uuid) && text(r.unit) && typeof r.name === 'string' && Number.isFinite(r.gwp) && Number.isFinite(r.amount) && r.amount > 0 && r.unit)) throw Error(`${f.name}: a record has no valid figure.`);
   }
 }
 console.log(`verified ${m.version}: ${m.files.map(f => `${f.name} ${f.records}`).join(', ')}`);
