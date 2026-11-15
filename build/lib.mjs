@@ -89,6 +89,33 @@ export function checkTable(table, records) {
   return true;
 }
 
+// The manifest rules of the app (GLOBE src/core/plantdb.mjs checkManifest and builtTime), so the build never
+// publishes a release the app would refuse.
+export const LIMITS = { files: 8, fileBytes: 200e6, totalBytes: 400e6 };
+const BUILT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?Z$/;
+export function builtTime(text) {
+  if (typeof text !== 'string' || !BUILT.test(text)) return NaN;
+  const t = Date.parse(text);
+  return Number.isFinite(t) && new Date(t).toISOString() === (text.length === 20 ? text.replace('Z', '.000Z') : text) ? t : NaN;
+}
+export function checkManifest(m, schema) {
+  if (m?.format !== 'GLOBE-DATA') throw Error('Not a GLOBE data manifest.');
+  if (m.schema !== schema) throw Error(`Data schema ${m.schema} is not ${schema}.`);
+  if (!Number.isFinite(builtTime(m.built))) throw Error('The data manifest has no valid build time.');
+  if (!Array.isArray(m.files) || !m.files.length || m.files.length > LIMITS.files) throw Error('The data manifest lists no files or too many.');
+  let total = 0; const names = new Set();
+  for (const f of m.files) {
+    if (!f || !/^[a-z0-9-]+\.json\.br$/.test(f.name) || names.has(f.name)) throw Error('Unexpected file name in the data release.');
+    if (f.kind !== 'plants' && f.kind !== 'emissions') throw Error(`Unknown data kind in ${f.name}.`);
+    if (!Number.isInteger(f.bytes) || f.bytes <= 0 || f.bytes > LIMITS.fileBytes) throw Error(`${f.name} has no valid size.`);
+    if (!/^[0-9a-f]{64}$/.test(f.sha256)) throw Error(`${f.name} has no valid checksum.`);
+    if (!Number.isInteger(f.records) || f.records < 0) throw Error(`${f.name} has no valid record count.`);
+    names.add(f.name); total += f.bytes;
+  }
+  if (total > LIMITS.totalBytes) throw Error('The data release is too large.');
+  return m;
+}
+
 export const brotli = buf => brotliCompressSync(buf, { params: { [constants.BROTLI_PARAM_QUALITY]: 11, [constants.BROTLI_PARAM_SIZE_HINT]: buf.length } });
 export const unbrotli = buf => brotliDecompressSync(buf);
 export const sha256 = buf => createHash('sha256').update(buf).digest('hex');

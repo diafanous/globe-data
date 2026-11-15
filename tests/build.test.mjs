@@ -136,3 +136,17 @@ test('tables: column containers are checked like the app does', () => {
   for (const cols of [[], 7, null]) assert.throws(() => checkTable({ n: 0, cols }, 0), /no columns/, JSON.stringify(cols));
   assert.ok(checkTable({ n: 0, cols: {} }, 0));
 });
+
+import { checkManifest, builtTime } from '../build/lib.mjs';
+test('manifests: the build refuses what the app refuses', () => {
+  const file = { name: 'plants.json.br', kind: 'plants', bytes: 10, records: 1, sha256: 'a'.repeat(64) };
+  const m = extra => ({ format: 'GLOBE-DATA', schema: 1, version: 'x', built: '2026-11-14T00:00:00.000Z', files: [file], ...extra });
+  assert.ok(checkManifest(m(), 1));
+  const bad = [
+    [{ built: undefined, files: [] }, /build time/], [{ built: '2026-02-30T00:00:00Z' }, /build time/], [{ files: [] }, /no files/],
+    [{ files: [file, file] }, /file name/], [{ files: [{ ...file, kind: 'other' }] }, /Unknown data kind/], [{ files: [{ ...file, name: '../x.json.br' }] }, /file name/],
+    [{ files: [{ ...file, bytes: 3e8 }] }, /size/], [{ files: Array.from({ length: 9 }, (_, i) => ({ ...file, name: `f${i}.json.br` })) }, /too many/], [{ schema: 2 }, /schema/],
+  ];
+  for (const [extra, why] of bad) assert.throws(() => checkManifest(m(extra), 1), why, JSON.stringify(extra).slice(0, 60));
+  assert.equal(builtTime('2026-11-14T22:48:04Z'), builtTime('2026-11-14T22:48:04.000Z'));
+});
