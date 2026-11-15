@@ -125,3 +125,9 @@ test('tables: the build refuses what the app refuses (dictionary of numbers, bad
   assert.throws(() => checkTable({ n: 1, cols: { x: { w: [1] } } }, 1), /no known kind|wrong length/);
   assert.throws(() => checkTable({ n: 1, cols: { lat: { q: 1e5, i: ['1'] } } }, 1), /not a number/);
 });
+
+test('tables: the array of the column kind is the one checked (an extra column with a wrong-length value list)', () => {
+  assert.throws(() => checkTable({ n: 1, cols: { extra: { i: [0], v: [] } } }, 1), /wrong length/);
+  assert.throws(() => checkTable({ n: 1, cols: { extra: { i: [0] } } }, 1), /no known kind/);
+  assert.ok(checkTable({ n: 1, cols: { a: { v: [null] } } }, 1));
+});

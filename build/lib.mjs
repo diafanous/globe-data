@@ -67,15 +67,23 @@ export function unpack(table) {
 export function checkTable(table, records) {
   if (!table || !Number.isInteger(table.n) || table.n !== records || !table.cols) throw Error('Table does not match its record count.');
   if (table.n < 0 || table.n > 5e6) throw Error('Table is too large.');
+  // Same rule and order as the app's checkTable (GLOBE src/core/plantdb.mjs): the first kind present decides,
+  // and the array belonging to that kind is the one checked.
+  const n = table.n;
   for (const [k, c] of Object.entries(table.cols)) {
-    const list = c.s || c.i || c.v;
-    if (!Array.isArray(list) || list.length !== table.n) throw Error(`Column ${k} is the wrong length.`);
-    if (c.d && (!Array.isArray(c.d) || !c.d.every(v => typeof v === 'string'))) throw Error(`Column ${k} has no dictionary of text.`);
-    if (c.q != null && !(typeof c.q === 'number' && c.q > 0 && Number.isFinite(c.q))) throw Error(`Column ${k} has no valid scale.`);
-    if (!c.s && !c.d && c.q == null && !c.v) throw Error(`Column ${k} is of no known kind.`);
-    if (c.s && !c.s.every(v => typeof v === 'string')) throw Error(`Column ${k} has a value that is not text.`);
-    if (c.d && !c.i.every(v => Number.isInteger(v) && v >= -1 && v < c.d.length)) throw Error(`Column ${k} has an index out of range.`);
-    if (c.q != null && !c.i.every(v => v === null || Number.isFinite(v))) throw Error(`Column ${k} has a value that is not a number.`);
+    const bad = why => { throw Error(`Column ${k} ${why}.`); };
+    if (!c || typeof c !== 'object') bad('is of no known kind');
+    if (c.s) { if (!Array.isArray(c.s) || c.s.length !== n) bad('is the wrong length'); if (!c.s.every(v => typeof v === 'string')) bad('has a value that is not text'); }
+    else if (c.d) {
+      if (!Array.isArray(c.d) || !c.d.every(v => typeof v === 'string')) bad('has no dictionary of text');
+      if (!Array.isArray(c.i) || c.i.length !== n) bad('is the wrong length');
+      if (!c.i.every(v => Number.isInteger(v) && v >= -1 && v < c.d.length)) bad('has an index out of range');
+    } else if (c.q != null) {
+      if (!(typeof c.q === 'number' && c.q > 0 && Number.isFinite(c.q))) bad('has no valid scale');
+      if (!Array.isArray(c.i) || c.i.length !== n) bad('is the wrong length');
+      if (!c.i.every(v => v === null || Number.isFinite(v))) bad('has a value that is not a number');
+    } else if (c.v) { if (!Array.isArray(c.v) || c.v.length !== n) bad('is the wrong length'); }
+    else bad('is of no known kind');
   }
   return true;
 }
