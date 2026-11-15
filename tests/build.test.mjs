@@ -99,3 +99,22 @@ test('fallback records come only from a previous release whose signature and che
   write(sign(null, manifest, privateKey).toString('base64'), changed);
   assert.equal(run(prev, join(dir, 'out3')), false);
 });
+
+import { fetchEmissions } from '../build/sources/okobaudat.mjs';
+test('ÖKOBAUDAT: repeated pages fail; unreadable records keep last week\'s figure and mark the source partial', async () => {
+  const real = globalThis.fetch;
+  const json = body => new Response(JSON.stringify(body), { status: 200 });
+  try {
+    // No total count, and the server ignores the offset: the same dataset comes back again.
+    globalThis.fetch = async url => json({ data: String(url).includes('startIndex=0') || String(url).includes('startIndex=1') ? [{ uuid: 'u1', name: 'A' }] : [] });
+    await assert.rejects(fetchEmissions({ log: () => {} }), /repeats earlier datasets/);
+    // One new and one changed dataset; both detail reads fail. The changed one keeps its earlier row.
+    globalThis.fetch = async url => String(url).includes('/processes?')
+      ? json({ totalCount: 2, data: String(url).includes('startIndex=0') ? [{ uuid: 'new', name: 'New', version: '1' }, { uuid: 'old', name: 'Old', version: '2' }] : [] })
+      : new Response('gone', { status: 404 });
+    const previous = new Map([['old', { uuid: 'old', version: '1', name: 'Old', gwp: 5, amount: 1, unit: 'kg' }]]);
+    const r = await fetchEmissions({ log: () => {}, previous });
+    assert.deepEqual(r.rows.map(x => x.uuid), ['old']);
+    assert.deepEqual(r.partial, { failedRecords: 2, keptRecords: 1 });
+  } finally { globalThis.fetch = real; }
+});

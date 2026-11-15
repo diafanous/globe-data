@@ -39,13 +39,15 @@ export function parseProcess(json) {
 // previous: Map uuid -> row from the last release, reused when the dataset version is unchanged.
 export async function fetchEmissions({ log, previous = new Map() }) {
   // Page by what the server actually returns, until its total is reached or a page comes back empty.
-  const list = []; let total = null;
+  const list = [], seen = new Set(); let total = null;
   for (let start = 0; ; ) {
     const page = await get(`${BASE}/processes?format=json&pageSize=500&startIndex=${start}&lang=en`, { timeout: 180000 });
     const data = Array.isArray(page?.data) ? page.data : null;
     if (!data) throw Error('ÖKOBAUDAT: unexpected list answer.');
     if (Number.isInteger(page.totalCount)) total = page.totalCount;
-    list.push(...data.filter(d => d.uuid && d.name));
+    const fresh = data.filter(d => d.uuid && d.name && !seen.has(d.uuid));
+    if (data.length && !fresh.length) throw Error(`ÖKOBAUDAT: page at ${start} repeats earlier datasets.`);
+    for (const d of fresh) { seen.add(d.uuid); list.push(d); }
     start += data.length;
     if (!data.length || (total != null && start >= total)) break;
     if (start > 200000) throw Error('ÖKOBAUDAT: too many pages.');
@@ -75,6 +77,8 @@ export async function fetchEmissions({ log, previous = new Map() }) {
   await Promise.all(Array.from({ length: 4 }, worker));
   log(`okobaudat: ${fetched} read, ${reused} unchanged, ${skipped} without an A1-A3 figure, ${failed} unreachable (${kept} kept from the last release)`);
   if (failed > Math.max(20, list.length * 0.02)) throw Error(`ÖKOBAUDAT: ${failed} records could not be read.`);
+  if (new Set(rows.map(r => r.uuid)).size !== rows.length) throw Error('ÖKOBAUDAT: duplicate records.');
   rows.sort((a, b) => a.uuid.localeCompare(b.uuid));
-  return { rows, version: `${list.length} datasets`, staleRecords: kept };
+  // Partial: some records could not be read this week (kept ones keep their earlier figures).
+  return { rows, version: `${list.length} datasets`, partial: failed > 0 ? { failedRecords: failed, keptRecords: kept } : null };
 }

@@ -70,7 +70,7 @@ export async function build(out = 'dist') {
         const r = f.kind === 'emissions' ? await src.fetchEmissions({ log, previous }) : await src.fetchPlants({ log });
         if (!r.rows.length) throw Error('no records');
         rows.push(...r.rows);
-        sources.push({ ...m, version: r.version, retrieved: today(), records: r.rows.length, stale: false, ...(r.staleRecords ? { staleRecords: r.staleRecords } : {}) });
+        sources.push({ ...m, version: r.version, retrieved: today(), records: r.rows.length, stale: !!r.partial, ...(r.partial || {}) });
       } catch (e) {
         failures++; log(`${m.id} FAILED: ${e.message}`);
         if (before) { rows.push(...prevRows.filter(r => f.kind === 'emissions' || r.source === m.id)); sources.push({ ...before, stale: true }); }
@@ -81,7 +81,8 @@ export async function build(out = 'dist') {
     const buf = brotli(Buffer.from(body));
     await writeFile(join(out, f.file), buf);
     manifest.files.push({ name: f.file, kind: f.kind, licence: f.licence, records: rows.length, bytes: buf.length, sha256: sha256(buf) });
-    manifest.sources.push(...sources.map(s => ({ id: s.id, name: s.name, licence: s.licence, file: f.file, version: s.version, retrieved: s.retrieved, records: s.records, stale: s.stale, attribution: s.attribution, url: s.url })));
+    manifest.sources.push(...sources.map(s => ({ id: s.id, name: s.name, licence: s.licence, file: f.file, version: s.version, retrieved: s.retrieved, records: s.records, stale: s.stale,
+      ...(s.failedRecords ? { failedRecords: s.failedRecords, keptRecords: s.keptRecords } : {}), attribution: s.attribution, url: s.url })));
     log(`${f.file}: ${rows.length} records, ${(buf.length / 1e6).toFixed(2)} MB`);
   }
   if (!manifest.files.length) throw Error('Every source failed; nothing was built.');

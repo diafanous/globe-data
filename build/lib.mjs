@@ -66,10 +66,14 @@ export function unpack(table) {
 // A table is well formed: every column the right length and kind.
 export function checkTable(table, records) {
   if (!table || !Number.isInteger(table.n) || table.n !== records || !table.cols) throw Error('Table does not match its record count.');
+  if (table.n < 0 || table.n > 5e6) throw Error('Table is too large.');
   for (const [k, c] of Object.entries(table.cols)) {
     const list = c.s || c.i || c.v;
     if (!Array.isArray(list) || list.length !== table.n) throw Error(`Column ${k} is the wrong length.`);
     if (c.d && !Array.isArray(c.d)) throw Error(`Column ${k} has no dictionary.`);
+    if (c.s && !c.s.every(v => typeof v === 'string')) throw Error(`Column ${k} has a value that is not text.`);
+    if (c.d && !c.i.every(v => Number.isInteger(v) && v >= -1 && v < c.d.length)) throw Error(`Column ${k} has an index out of range.`);
+    if (c.q != null && !c.i.every(v => v === null || Number.isFinite(v))) throw Error(`Column ${k} has a value that is not a number.`);
   }
   return true;
 }
