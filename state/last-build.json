@@ -1,6 +1,6 @@
 {
  "version": "2026-11-14",
- "built": "2026-11-14T22:20:29.758Z",
+ "built": "2026-11-14T23:58:11.045Z",
  "files": [
   {
    "name": "plants.json.br",
@@ -9,13 +9,13 @@
   },
   {
    "name": "plants-osm.json.br",
-   "records": 58969,
-   "bytes": 666281
+   "records": 58971,
+   "bytes": 669117
   },
   {
    "name": "emissions.json.br",
    "records": 5416,
-   "bytes": 225222
+   "bytes": 225420
   }
  ],
  "sources": [
@@ -39,8 +39,8 @@
   },
   {
    "id": "osm",
-   "version": "2026-11-14",
-   "records": 58969,
+   "version": "2026-11-15",
+   "records": 58971,
    "stale": false
   },
   {
