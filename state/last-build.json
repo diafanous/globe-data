@@ -1,11 +1,11 @@
 {
- "version": "2026-11-15",
- "built": "2026-11-15T00:29:34.743Z",
+ "version": "2026-11-16",
+ "built": "2026-11-16T13:48:15.220Z",
  "files": [
   {
    "name": "plants.json.br",
    "records": 6805,
-   "bytes": 151399
+   "bytes": 152438
   },
   {
    "name": "plants-osm.json.br",
@@ -15,7 +15,7 @@
   {
    "name": "emissions.json.br",
    "records": 5416,
-   "bytes": 225420
+   "bytes": 225315
   }
  ],
  "sources": [
