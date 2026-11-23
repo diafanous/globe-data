@@ -1,11 +1,11 @@
 {
- "version": "2026-11-16",
- "built": "2026-11-16T13:48:15.220Z",
+ "version": "2026-11-23",
+ "built": "2026-11-23T16:11:47.791Z",
  "files": [
   {
    "name": "plants.json.br",
    "records": 6805,
-   "bytes": 152438
+   "bytes": 151396
   },
   {
    "name": "plants-osm.json.br",
@@ -14,8 +14,8 @@
   },
   {
    "name": "emissions.json.br",
-   "records": 5416,
-   "bytes": 225315
+   "records": 5417,
+   "bytes": 225321
   }
  ],
  "sources": [
@@ -45,8 +45,8 @@
   },
   {
    "id": "okobaudat",
-   "version": "6381 datasets",
-   "records": 5416,
+   "version": "6382 datasets",
+   "records": 5417,
    "stale": false
   }
  ]
